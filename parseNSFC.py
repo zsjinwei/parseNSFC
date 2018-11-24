@@ -3,15 +3,16 @@
 '''
 Created on 2018-11-24
 @author: Huang Jinwei
+@description: 从isisn.nsfc.gov.cn获取多年的重大项目列表，并保存到csv文件，可选自动识别验证码
 '''
-import requests as req
+
 from PIL import Image
 from io import BytesIO
-import demjson
+import requests as req
 import os, sys, re
 import time, datetime
 import xml.dom.minidom as xmldom
-import codecs
+import pytesseract
 
 result_xml = 'result.xml'
 result_csv = 'result.csv'
@@ -20,7 +21,7 @@ nsfc_req_raw_url = "https://isisn.nsfc.gov.cn/egrantindex/funcindex/prjsearch-li
 nsfc_validcode_img_url = "https://isisn.nsfc.gov.cn/egrantindex/validatecode.jpg"
 nsfc_validcode_chk_url = "https://isisn.nsfc.gov.cn/egrantindex/funcindex/validate-checkcode"
 
-def get_nsfc_data(year, result_xml):
+def get_nsfc_data(year, result_xml, autoverify=False):
 
     req_session = req.session()
     headers = {'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
@@ -28,16 +29,24 @@ def get_nsfc_data(year, result_xml):
     # get verify code image
     vimg_response = req_session.get(nsfc_validcode_img_url)
     image = Image.open(BytesIO(vimg_response.content))
-    image.show()
 
-    verify_c_str = input("Please input verify code: ");
+    if autoverify == True:
+        imgry = image.convert('L')  # 转化为灰度图
+        text = pytesseract.image_to_string(imgry)
+        print("validate code = "+text)
+        verify_c_str = text
+    else:
+        image.show()
+        verify_c_str = input("Please input verify code: ")
 
     validate_resp = req_session.post(nsfc_validcode_chk_url, data={"checkCode":verify_c_str})
     #print(verify_c_str)
-    print(validate_resp.text)
+    #print(validate_resp.text)
 
     if(validate_resp.text != "success"):
         print("Validate fail!")
+    else:
+        print("Validate success!")
 
     raw_req_data = {
         "resultDate": "prjNo:,ctitle:,psnName:,orgName:,subjectCode:,f_subjectCode_hideId:,subjectCode_hideName:,keyWords:,checkcode:"+verify_c_str+",grantCode:222,subGrantCode:,helpGrantCode:,year:" + str(year),
@@ -121,12 +130,19 @@ if __name__ == "__main__":
     while year_count < len(req_year):
         year = req_year[year_count]
         try:
-            get_nsfc_data(year, str(year) + result_xml)
-            last_count += trans2csv(year, str(year) + result_xml, result_csv, append=True, startnum=(last_count+1))
+            cur_result_xml = str(year) + '_' + result_xml
+            print("Parsing " + str(year) + ", save to " + cur_result_xml)
+            get_nsfc_data(year, cur_result_xml, autoverify=True)
+            last_count += trans2csv(year, cur_result_xml, result_csv, append=True, startnum=(last_count+1))
             year_count += 1
-        except:
+            if(os.path.exists(cur_result_xml)):
+                os.remove(cur_result_xml)
+        except Exception as e:
+            print(str(e))
             print("Get " + str(year) + " fail, retring...")
             continue
+
+    print("Done! Got " + str(last_count) + " items, result was saved to " + result_csv)
 
 
     
