@@ -14,6 +14,8 @@ import time, datetime
 import xml.dom.minidom as xmldom
 import pytesseract
 
+from urllib import parse
+
 result_xml = 'result.xml'
 result_csv = 'result.csv'
 nsfc_req_url = "https://isisn.nsfc.gov.cn/egrantindex/funcindex/prjsearch-list?flag=grid&checkcode="
@@ -48,8 +50,23 @@ def get_nsfc_data(year, result_xml, autoverify=False):
     else:
         print("Validate success!")
 
+    resultDate = "prjNo:," + \
+        "ctitle:," + \
+        "psnName:," + \
+        "orgName:," + \
+        "subjectCode:H2610.非传染病流行病学," + \
+        "f_subjectCode_hideId:H2610," + \
+        "subjectCode_hideName:," + \
+        "keyWords:," + \
+        "checkcode:" + verify_c_str + "," + \
+        "grantCode:218," + \
+        "subGrantCode:," + \
+        "helpGrantCode:," + \
+        "year:" + str(year) + "," + \
+        "sqdm:H2610"
+
     raw_req_data = {
-        "resultDate": "prjNo:,ctitle:,psnName:,orgName:,subjectCode:,f_subjectCode_hideId:,subjectCode_hideName:,keyWords:,checkcode:"+verify_c_str+",grantCode:222,subGrantCode:,helpGrantCode:,year:" + str(year),
+        "resultDate": resultDate,
         "checkcode": verify_c_str
     }
 
@@ -63,14 +80,14 @@ def get_nsfc_data(year, result_xml, autoverify=False):
         "page": "1",
         "sidx": "",
         "sord": "desc",
-        "searchString": "resultDate^:prjNo%3A%2Cctitle%3A%2CpsnName%3A%2CorgName%3A%2CsubjectCode%3A%2Cf_subjectCode_hideId%3A%2CsubjectCode_hideName%3A%2CkeyWords%3A%2Ccheckcode%3A"+verify_c_str+"%2CgrantCode%3A222%2CsubGrantCode%3A%2ChelpGrantCode%3A%2Cyear%3A"+str(year)+"[tear]sort_name1^:psnName[tear]sort_name2^:prjNo[tear]sort_order^:desc"
+        "searchString": "resultDate^:" + parse.quote(resultDate) + "[tear]sort_name1^:psnName[tear]sort_name2^:prjNo[tear]sort_order^:desc"
     }
 
     req_resp = req_session.post(nsfc_req_url, data=req_data, verify=False, headers=headers)
     #print(req_resp.text)
 
     fh_xml = open (result_xml, 'w+', encoding='utf-8-sig')
-    fh_xml.write ( req_resp.text ) 
+    fh_xml.write ( req_resp.text )
     fh_xml.close()
 
 def trans2csv(year, result_xml, result_csv, append=False, startnum=1):
@@ -93,7 +110,7 @@ def trans2csv(year, result_xml, result_csv, append=False, startnum=1):
     if append == True:
         open_mode = 'a+'
 
-    fh_csv = open (result_csv, open_mode, encoding='utf-8-sig') 
+    fh_csv = open (result_csv, open_mode, encoding='utf-8-sig')
 
     wr_count = 0
 
@@ -115,7 +132,7 @@ def trans2csv(year, result_xml, result_csv, append=False, startnum=1):
 
 
 if __name__ == "__main__":
-    req_year = [2014, 2015, 2016, 2017, 2018]
+    req_year = [2014, 2015, 2016, 2017, 2018, 2019, 2020]
     csv_header = '序号,查询年份,项目批准号,申请代码1,项目名称,项目负责人,依托单位,批准金额,项目起止年月\n'
 
     if(os.path.exists(result_csv)):
@@ -123,7 +140,7 @@ if __name__ == "__main__":
 
     fh_csv = open (result_csv, 'w+', encoding='utf-8-sig')
     fh_csv.write(csv_header)
-    fh_csv.close() 
+    fh_csv.close()
 
     last_count = 0
     year_count = 0
@@ -145,4 +162,3 @@ if __name__ == "__main__":
     print("Done! Got " + str(last_count) + " items, result was saved to " + result_csv)
 
 
-    
